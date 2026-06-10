@@ -1,0 +1,980 @@
+{
+  "name": "AI LEAD QUALIFICATION SYSTEM",
+  "nodes": [
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        224
+      ],
+      "id": "51ba90d5-cc4c-4148-b299-7beac7aa5d7c",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "4UPkyUj5R8edk7z7",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a B2B lead scoring AI. Your job is to score an incoming lead from 1 to 10 based on the information they submitted in a form.\n\nUse this scoring rubric:\n\nJOB TITLE\n- C-suite, VP, Director, Owner, Founder → +3 pts\n- Manager, Team Lead, Head of, Senior → +2 pts\n- Junior, Coordinator, Assistant, Intern, Student → +0 pts\n\nDECISION TIMELINE\n- \"Ready to move immediately\" → +2 pts\n- \"Within the next month\" → +1 pt\n- \"1–3 months from now\" → +0.5 pts\n- \"Just exploring\" → +0 pts\n\nBUDGET STATUS\n- \"Yes, budget is confirmed\" → +2 pts\n- \"Still working on it\" → +1 pt\n- \"No budget yet\" → +0 pts\n\nEMAIL TYPE\n- Company domain email (not Gmail, Yahoo, Hotmail, Outlook personal) → +1 pt\n- Free email provider → +0 pts\n\nPAIN POINT ANSWER\n- Specific, detailed answer with a real problem (2+ sentences) → +1 pt\n- Vague, one word, or left blank → +0 pts\n\nDECISION-MAKER STATUS\n- \"Yes, I make the final call\" → +1 pt\n- \"I influence the decision\" → +0.5 pts\n- \"No, someone else decides\" → -1 pt\n\n---\n\nHere is the lead's form submission:\n\nName: {{ $json.body.submission.questions[0].value }}\nJob Title: {{ $json.body.submission.questions[2].value }}\nWork Email: {{ $json.body.submission.questions[1].value }}\nCompany: {{ $json.body.submission.questions[5].value }}\nCompany Size: {{ $json.body.submission.questions[4].value }}\nIndustry: {{ $json.body.submission.questions[7].value }}\nBiggest Challenge: {{ $json.body.submission.questions[8].value }}\nWhat They've Tried: {{ $json.body.submission.questions[9].value }}\nSuccess Vision: {{ $json.body.submission.questions[10].value }}\nDecision Timeline: {{ $json.body.submission.questions[11].value }}\nBudget Status: {{ $json.body.submission.questions[12].value }}\nDecision Maker: {{ $json.body.submission.questions[13].value }}\nWants a Call: {{ $json.body.submission.questions[14].value }}\nPhone Number : {{ $json.body.submission.questions[3].value }}\n\n---\n\nScore this lead using the rubric above. Add up the points, cap the total at 10.\n\nThen return ONLY a valid JSON object — no explanation, no markdown, no extra text. Just the JSON:\n\n{\n  \"lead_score\": 8,\n  \"buying_intent\": \"high\",\n  \"tier\": \"hot\",\n  \"ai_reason\": \"One sentence explanation of why this lead scored this way\",\n  \"recommended_action\": \"One specific next step for the sales rep\"\n}\n\nRules for the output fields:\n- lead_score: a number between 1 and 10\n- buying_intent: exactly one of → \"high\", \"medium\", \"low\"\n- tier: exactly one of → \"hot\", \"warm\", \"cold\"  (hot = 7–10, warm = 4–6, cold = 1–3)\n- ai_reason: max 20 words, plain English, no jargon\n- recommended_action: max 15 words — e.g. \"Call within 2 hours\" or \"Send case study, follow up in 3 days\"\n",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "a93a9d12-0038-4b5d-a462-0c3cce3afb57",
+      "name": "Lead classifier"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"lead_score\": {\n      \"type\": \"number\",\n      \"description\": \"A number between 1 and 10 based on the scoring rubric\"\n    },\n    \"buying_intent\": {\n      \"type\": \"string\",\n      \"enum\": [\"high\", \"medium\", \"low\"],\n      \"description\": \"Exactly one of: high, medium, low\"\n    },\n    \"tier\": {\n      \"type\": \"string\",\n      \"enum\": [\"hot\", \"warm\", \"cold\"],\n      \"description\": \"Exactly one of: hot, warm, cold\"\n    },\n    \"ai_reason\": {\n      \"type\": \"string\",\n      \"description\": \"Max 20 words explaining why this lead got this score\"\n    },\n    \"recommended_action\": {\n      \"type\": \"string\",\n      \"description\": \"Max 15 words, specific next step for the sales rep\"\n    },\n    \"email_subject\": {\n      \"type\": \"string\",\n      \"description\": \"A compelling personalized email subject line for this lead\"\n    },\n    \"email_body\": {\n      \"type\": \"string\",\n      \"description\": \"Full personalized email body including greeting, pain point reference, solution, result, Calendly link and sign-off\"\n    }\n  },\n  \"required\": [\"lead_score\", \"buying_intent\", \"tier\", \"ai_reason\", \"recommended_action\", \"email_subject\", \"email_body\"]\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        368,
+        224
+      ],
+      "id": "e6f40502-b302-4885-959a-14da21456146",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.tier }}",
+                    "rightValue": "hot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "15f4bbd3-df68-4a2d-80f2-f02556edc897"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Hot Lead"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2a3e27a4-6b01-4880-a8af-8a1d01489f35",
+                    "leftValue": "={{ $json.output.tier }}",
+                    "rightValue": "warm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Warm Lead"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "970421ab-70c0-477f-a721-c5b7795477f0",
+                    "leftValue": "={{ $json.output.tier }}",
+                    "rightValue": "cold",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Cold Lead"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        576,
+        -16
+      ],
+      "id": "8e306108-65d8-4c87-96b4-656b18d5bea4",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "f6eafeb1-0124-4c0a-bc80-8eb9c54180ef",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c35b00c6-34c4-4c80-a041-167fcfc2cd01",
+      "name": "Leads",
+      "webhookId": "f6eafeb1-0124-4c0a-bc80-8eb9c54180ef"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        944,
+        -144
+      ],
+      "id": "920c97ec-3f07-4e75-b797-48e4d97dc9a4",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "4UPkyUj5R8edk7z7",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Lead Info').item.json.Email }}",
+        "subject": "={{ $json.output.email_subject }}",
+        "emailType": "text",
+        "message": "={{ $json.output.email_body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1328,
+        -336
+      ],
+      "id": "007e184a-ca5a-45a8-89bd-cb2c39215d8a",
+      "name": "Send a message2",
+      "webhookId": "9b6574fc-b0b2-43de-81c7-726bd1a5eeb0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "zEazZkP06aNukACo",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Leads').item.json.body.submission.questions[1].value }}",
+        "subject": "={{ $json.first_name }} , here's something that might help",
+        "emailType": "text",
+        "message": "=Hi {{ $json.first_name }},\nI saw you're dealing with {{ $('Leads').item.json.body.submission.questions[8].value }},\nthat's something we help businesses like {{ $('Leads').item.json.body.submission.questions[5].value }} tackle regularly.\nI put together a quick resource that walks through how teams in your position have solved this. No fluff, just practical steps.\n Read the free guide here:\nhttps://scaleupagency.notion.site/5-Ways-B2B-Companies-Close-More-Deals-Without-Hiring\nNo pressure to do anything with it, just wanted to put something useful in your hands first.\n\nSpeak soon,\nDeborah Pitt.\nScaleUp Agency\n+2349856123590\n\n\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1056,
+        0
+      ],
+      "id": "f688d0ec-c511-4d1c-954e-e8e5579e8a38",
+      "name": "Nurture Email",
+      "webhookId": "9e937af4-bed3-4cdc-b468-0235988c396c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "zEazZkP06aNukACo",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B9HR05LJU",
+          "mode": "list",
+          "cachedResultName": "hot_leads"
+        },
+        "text": "=🔥 NEW HOT LEAD ALERT\n\nName: {{ $('Leads').item.json.body.submission.questions[0].value }}\nCompany: {{ $('Leads').item.json.body.submission.questions[5].value }}\nJob Title: {{ $('Leads').item.json.body.submission.questions[2].value }} \nEmail: {{ $('Leads').item.json.body.submission.questions[1].value }}\nLead Score: {{ $json.output.lead_score }}/10\nBuying Intent: {{ $json.output.buying_intent }}\nAI Reason: {{ $json.output.ai_reason }}\nRecommended Action: {{ $json.output.recommended_action }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        560,
+        -336
+      ],
+      "id": "ae7a6482-94b6-4c3d-b5ad-a6d5e9a927ec",
+      "name": "Sales team notification",
+      "webhookId": "beee2939-bcac-4edd-bdd7-71d4fe41aabf",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "sSEvYaC3L1TNS4pS",
+          "name": "Slack OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You must respond with ONLY a valid JSON object. \nNo markdown. No code blocks. No backticks. No explanation. \nStart your response with { and end with }.You are a professional sales copywriter for ScaleUp Agency, \na B2B consultancy that helps small-to-mid size businesses \nautomate their sales process, qualify leads faster, and \nclose more deals without hiring extra staff.\n\nYou will receive details about an incoming lead. Your job \nis to write a short, personalized sales email to that lead.\n\n---\n\nLEAD DETAILS:\nFirst Name: {{ $json['First Name'] }}\nCompany: {{ $json['Company Name'] }}\nJob Title: {{ $json['Job Title'] }}\nBiggest Challenge: {{ $json['Biggest Challenge'] }}\nLead Score: {{ $json.Lead_Score }}\nAI Reason: {{ $json['AI Reason'] }}\n\n---\n\nEMAIL REQUIREMENTS:\n\nSubject line rules:\n- Use one of these proven formats:\n  1. \"[First name], are you still struggling with [pain point]?\"\n  2. \"[First name], here is how [Company] can fix [pain point]\"\n  3. \"How companies like [Company] are solving [pain point] fast\"\n  4. \"[First name], something that might change how you handle [pain point]\"\n- Keep the subject under 60 characters\n- Never use generic phrases like \"following up\" or \"checking in\"\n- Never use all caps or excessive punctuation\n\nEmail body rules:\n- Start with a warm greeting using their first name only\n- Second sentence must reference their specific pain point \n  from the form — do not use generic language\n- Third and fourth sentences explain briefly how ScaleUp \n  Agency solves exactly that problem\n- Include one concrete result or outcome, for example: \n  \"Our clients typically see a 30–50% increase in qualified \n  conversations within the first few weeks\"\n- Keep the email between 4 and 6 sentences — no long paragraphs\n- Do not use buzzwords like \"synergy\", \"leverage\", or \n  \"cutting-edge\"\n- Do not make it sound like a template — it must feel like \n  a human wrote it specifically for this person\n- Include this Calendly booking link naturally in the email:\n  https://calendly.com/yourname/discovery-call\n- The CTA should be soft — invite them to book a free \n  15-minute call, not pressure them to buy\n- End the email with exactly this sign-off, do not change \n  it, do not add anything after it:\n\nBest Regards,\nDeborah Pitt,\nScaleUp Agency\n\n---\n\nOUTPUT FORMAT:\nReturn only a valid JSON object with exactly these two fields \nand nothing else — no markdown, no explanation, no extra text:\n\n{\n  \"email_subject\": \"your subject line here\",\n  \"email_body\": \"your full email body here including sign-off\"\n}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        976,
+        -336
+      ],
+      "id": "a5d884b7-3e01-46fa-9b9f-b756a5d4a1a5",
+      "name": "Personalized Email"
+    },
+    {
+      "parameters": {
+        "operation": "sendAudio",
+        "chatId": "7527645729",
+        "binaryData": true,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1968,
+        -336
+      ],
+      "id": "874671d2-d30b-4431-ba00-42bb297a671c",
+      "name": "Voice Note",
+      "webhookId": "3149b0a2-794e-4209-8ad9-9a371a53ac96",
+      "credentials": {
+        "telegramApi": {
+          "id": "x5dCkZP0TqrrOVZk",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "days"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1264,
+        0
+      ],
+      "id": "1c5345e3-568a-49b5-83da-3bcb371fbb45",
+      "name": "3 days wait interval",
+      "webhookId": "863eb812-ffa9-4b50-ad4d-c72080cd409f"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Leads').item.json.body.submission.questions[1].value }}",
+        "subject": "=Quick check-in,{{ $('Lead Info1').item.json.first_name }} ",
+        "emailType": "text",
+        "message": "=Hi {{ $('Lead Info1').item.json.first_name }},\nJust checking in to see if you got a chance to look at what I sent over.\nA lot of {{ $('Leads').item.json.body.submission.questions[7].value }} businesses we work with started exactly where you are, struggling with {{ $('Leads').item.json.body.submission.questions[8].value }} and were able to improve their customer base by 60% in 6 weeks.\nIf it makes sense, I'd love to jump on a quick 15-minute call to see if we can help {{ $('Leads').item.json.body.submission.questions[5].value }} get a similar result.\n\nhttps://calendly.com/yourname/discovery-call\n\nNo commitment,just a conversation.Either way, happy to help however I can.\n\nDeborah Pitt,\nScaleUp Agency.\n+2348595987230",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1472,
+        0
+      ],
+      "id": "3c28ccbf-911d-4fd6-ab24-7b54fb424b14",
+      "name": "Second Nurture Email",
+      "webhookId": "c8a448e7-8af2-482f-ba75-46662b939555",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "zEazZkP06aNukACo",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Uv7dAgON7lnZ7ZEe15ypMWDcfUQ0WZSZ8CHMQD_BmuM",
+          "mode": "list",
+          "cachedResultName": "Warm Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Uv7dAgON7lnZ7ZEe15ypMWDcfUQ0WZSZ8CHMQD_BmuM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Uv7dAgON7lnZ7ZEe15ypMWDcfUQ0WZSZ8CHMQD_BmuM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Time Stamp": "={{ $now.format('yyyy-MM-dd') }}",
+            "Lead Score": "={{ $('Lead Info1').item.json['Lead Score'] }}",
+            "Work Email": "={{ $('Lead Info1').item.json['Work Email'] }}",
+            "Full name": "={{ $('Lead Info1').item.json['Full Name'] }}",
+            "Tier": "={{ $('Lead Info1').item.json.Tier }}",
+            "Status": "New"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Time Stamp",
+              "displayName": "Time Stamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Full name",
+              "displayName": "Full name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Work Email",
+              "displayName": "Work Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lead Score",
+              "displayName": "Lead Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tier",
+              "displayName": "Tier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1680,
+        0
+      ],
+      "id": "efc34dc5-5bcb-4753-971b-571e48004434",
+      "name": "Records logged",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "yOhlP3zYbnE17HVo",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"email_subject\": {\n      \"type\": \"string\",\n      \"description\": \"A compelling personalized subject line under 60 characters\"\n    },\n    \"email_body\": {\n      \"type\": \"string\",\n      \"description\": \"Full personalized email body including greeting, pain point, solution, result, Calendly link and sign-off\"\n    }\n  },\n  \"required\": [\"email_subject\", \"email_body\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1120,
+        -160
+      ],
+      "id": "ba267c02-7faa-4625-90e2-02ea59b44432",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.voicerss.org/?key=8830d2958d464891bded2105b353eafc&hl=en-us&v=Linda&src={{ encodeURIComponent('New hot lead alert. Name: ' + $('Lead Info').item.json['First Name'] + '. Company: ' + $('Lead Info').item.json['Company Name'] + '. Score: ' + $('Lead classifier').item.json.output.lead_score + ' out of 10. ' + $('Lead classifier').item.json.output.ai_reason + '. Recommended action: ' + $('Lead classifier').item.json.output.recommended_action) }}&f=48khz_16bit_stereo&c=MP3",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1744,
+        -336
+      ],
+      "id": "64487c9a-5199-4b40-9fd1-a4bc3753c424",
+      "name": "HTTP Request",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1536,
+        -336
+      ],
+      "id": "fc7b0440-c6b7-4b5d-8e46-3e5ec4f5cd8c",
+      "name": "Wait",
+      "webhookId": "e741ea03-895c-4050-bd27-2306a56e308b"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7891a49f-bb6d-4f6b-b0ef-53f74d1d00a0",
+              "name": "First Name",
+              "value": "={{ $('Leads').item.json.body.submission.questions[0].value.split(' ')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "976a7aae-94cb-4aa5-8167-fccedda7c44b",
+              "name": "Email",
+              "value": "={{ $('Leads').item.json.body.submission.questions[1].value }}",
+              "type": "string"
+            },
+            {
+              "id": "f91da1a5-4c3f-4e3b-ab13-554979b72582",
+              "name": "Job Title",
+              "value": "={{ $('Leads').item.json.body.submission.questions[2].value }}",
+              "type": "string"
+            },
+            {
+              "id": "fd39bf75-dc59-4dfa-bd79-411197ff43fb",
+              "name": "Biggest Challenge",
+              "value": "={{ $('Leads').item.json.body.submission.questions[8].value }}",
+              "type": "string"
+            },
+            {
+              "id": "f5b0e1cc-8559-4b22-8584-a066907dd1ae",
+              "name": "Company Name",
+              "value": "={{ $('Leads').item.json.body.submission.questions[5].value }}",
+              "type": "string"
+            },
+            {
+              "id": "9570d39a-fbaf-4917-9884-a5cf51602c20",
+              "name": "Lead_Score",
+              "value": "={{ $('Lead classifier').item.json.output.lead_score }}",
+              "type": "number"
+            },
+            {
+              "id": "db0dad2d-151f-4ba6-be4b-099dee8e2f1d",
+              "name": "AI Reason",
+              "value": "={{ $('Lead classifier').item.json.output.ai_reason }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        768,
+        -336
+      ],
+      "id": "309ae11c-2241-45bb-ac0d-7d4ade6da6b1",
+      "name": "Lead Info"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2d3b4ab9-e717-488c-9efc-8622aa453e0b",
+              "name": "first_name",
+              "value": "={{ $('Leads').item.json.body.submission.questions[0].value.split(' ')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "07f2ab83-b4d3-44c1-9b61-f8fbeb5c76e5",
+              "name": "Tier",
+              "value": "={{ $json.output.tier }}",
+              "type": "string"
+            },
+            {
+              "id": "ca051379-0b23-4545-8b7c-a79155947fce",
+              "name": "Lead Score",
+              "value": "={{ $('Lead classifier').item.json.output.lead_score }}",
+              "type": "number"
+            },
+            {
+              "id": "39528e98-e41f-485f-9035-7f5b948efa73",
+              "name": "Work Email",
+              "value": "={{ $('Leads').item.json.body.submission.questions[1].value }}",
+              "type": "string"
+            },
+            {
+              "id": "a52ef733-c736-46e0-abe8-c8ba6612018b",
+              "name": "Full Name",
+              "value": "={{ $('Leads').item.json.body.submission.questions[0].value }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        832,
+        0
+      ],
+      "id": "c357a369-c4dd-47e2-ab5e-b06bfb6e5107",
+      "name": "Lead Info1"
+    }
+  ],
+  "pinData": {
+    "Leads": [
+      {
+        "json": {
+          "headers": {
+            "host": "preshcandy.app.n8n.cloud",
+            "user-agent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+            "content-length": "1770",
+            "accept": "application/json",
+            "accept-encoding": "gzip, br",
+            "baggage": "sentry-environment=production,sentry-public_key=fb9e5b294f68425eb7eb6b168b67dc8d,sentry-trace_id=92eeba1257ee48d6a5f14cc02f4d314e",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "74.220.48.248",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "US",
+            "cf-ray": "a07f2e4b9b53abbf-PDX",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "application/json",
+            "sentry-trace": "92eeba1257ee48d6a5f14cc02f4d314e-8b417ef2d7b18032",
+            "traceparent": "00-6a25506d0000000044eac8d87f084d2e-3af244dc64a2b729-00",
+            "tracestate": "dd=t.tid:6a25506d00000000;t.dm:-3;s:-1;p:3af244dc64a2b729",
+            "x-datadog-parent-id": "4247533111935678249",
+            "x-datadog-sampling-priority": "-1",
+            "x-datadog-tags": "_dd.p.tid=6a25506d00000000",
+            "x-datadog-trace-id": "4966002371299134766",
+            "x-forwarded-for": "74.220.48.248, 172.68.175.48",
+            "x-forwarded-host": "preshcandy.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-swc-20-df7569f7f-gh7bk",
+            "x-is-trusted": "yes",
+            "x-real-ip": "74.220.48.248"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "formId": "9GWLMwGHMXus",
+            "formName": "Sales Automation Hub",
+            "submission": {
+              "submissionId": "8fe5323d-3881-44e4-a44b-8b86f01cf83e",
+              "submissionTime": "2026-06-07T11:05:17.199Z",
+              "lastUpdatedAt": "2026-06-07T11:05:17.199Z",
+              "questions": [
+                {
+                  "id": "6kT5",
+                  "name": "Full Name",
+                  "type": "ShortAnswer",
+                  "value": "Precious James"
+                },
+                {
+                  "id": "wfNe",
+                  "name": "Work Email",
+                  "type": "EmailInput",
+                  "value": "preshjames50@gmail.com"
+                },
+                {
+                  "id": "6Pzf",
+                  "name": "Job Title",
+                  "type": "ShortAnswer",
+                  "value": "CEO"
+                },
+                {
+                  "id": "hHC6",
+                  "name": "Phone number",
+                  "type": "PhoneNumber",
+                  "value": "+2347037352930"
+                },
+                {
+                  "id": "je11",
+                  "name": "Company Size",
+                  "type": "Dropdown",
+                  "value": "51-100"
+                },
+                {
+                  "id": "ksdJ",
+                  "name": "Company Name",
+                  "type": "ShortAnswer",
+                  "value": "Khandie Consultancy"
+                },
+                {
+                  "id": "sDhq",
+                  "name": "Country",
+                  "type": "ShortAnswer",
+                  "value": "Nigeria"
+                },
+                {
+                  "id": "wdwE",
+                  "name": "Industry",
+                  "type": "ShortAnswer",
+                  "value": "Consulting / Agency"
+                },
+                {
+                  "id": "9kpD",
+                  "name": "What's your biggest challenge right now?",
+                  "type": "LongAnswer",
+                  "value": "Loss of customers"
+                },
+                {
+                  "id": "aLRw",
+                  "name": "What have you already tried?",
+                  "type": "LongAnswer",
+                  "value": "Instagram Adverts"
+                },
+                {
+                  "id": "8U4m",
+                  "name": "What does success look like in three months?",
+                  "type": "LongAnswer",
+                  "value": "Increase in customers"
+                },
+                {
+                  "id": "44BW",
+                  "name": "What's your decision timeline?",
+                  "type": "Dropdown",
+                  "value": "Ready to move immediately"
+                },
+                {
+                  "id": "jKFW",
+                  "name": "Do you have a budget set aside?",
+                  "type": "Dropdown",
+                  "value": "Yes, budget is confirmed"
+                },
+                {
+                  "id": "2G6L",
+                  "name": "Are you the decision maker?",
+                  "type": "Dropdown",
+                  "value": "No, someone else decides"
+                },
+                {
+                  "id": "pdHE",
+                  "name": "Would you like to book a call",
+                  "type": "Dropdown",
+                  "value": "Yes"
+                },
+                {
+                  "id": "ofpJ",
+                  "name": "How did you hear about us?",
+                  "type": "Dropdown",
+                  "value": "Friend"
+                }
+              ],
+              "calculations": [],
+              "urlParameters": [],
+              "quiz": {},
+              "documents": [],
+              "scheduling": [],
+              "payments": []
+            }
+          },
+          "webhookUrl": "https://preshcandy.app.n8n.cloud/webhook-test/f6eafeb1-0124-4c0a-bc80-8eb9c54180ef",
+          "executionMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Lead classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Lead classifier",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead classifier": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leads": {
+      "main": [
+        [
+          {
+            "node": "Lead classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Sales team notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lead Info1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Personalized Email",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message2": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sales team notification": {
+      "main": [
+        [
+          {
+            "node": "Lead Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Personalized Email": {
+      "main": [
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nurture Email": {
+      "main": [
+        [
+          {
+            "node": "3 days wait interval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3 days wait interval": {
+      "main": [
+        [
+          {
+            "node": "Second Nurture Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Second Nurture Email": {
+      "main": [
+        [
+          {
+            "node": "Records logged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Personalized Email",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Voice Note",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Info": {
+      "main": [
+        [
+          {
+            "node": "Personalized Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Info1": {
+      "main": [
+        [
+          {
+            "node": "Nurture Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a61f341e-b4ce-472c-8a6f-9f7674afcf96",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2f2247619d3adfc00636c9ea697e93a1e5c61ae6d3bdf73b96a29cbf445c4ba5"
+  },
+  "nodeGroups": [],
+  "id": "pGxcIzZOycS1WNbT",
+  "tags": []
+}
